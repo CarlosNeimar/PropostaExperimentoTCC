@@ -329,7 +329,7 @@ Não há treinamento humano. A "preparação" refere-se à configuração do *Sy
 | **8. Avaliação** | Executar biblioteca *Ragas* comparando `logs` contra `ground_truth`. Gerar CSV final. | Script | Ragas, Pandas |
 | **9. Análise** | Processar CSV, gerar boxplots e rodar testes de hipótese. | Autor | Python (Seaborn/Scipy) |
 
-<img width="2064" height="984" alt="- visual selection" src="https://github.com/user-attachments/assets/0abab865-a34e-4de8-9a59-2df5bf1cd634" />
+<img width="2064" height="984" alt="- visual selection" src="Assets/FluxogramaGeral.png" />
 
 **11.4 Plano de piloto**
 
