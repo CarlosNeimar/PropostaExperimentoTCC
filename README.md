@@ -160,3 +160,93 @@ Experimento controlado (*in silico*), utilizando datasets estáticos e avaliador
 **6.3 Critérios de parada antecipada**
 * Custo de ingestão projetado superior ao orçamento nos primeiros 10% dos dados.
 * Falha da LLM em extrair triplas coerentes (necessidade de troca de dataset).
+
+## 7. Modelo conceitual e hipóteses
+
+**7.1 Modelo conceitual do experimento**
+O modelo baseia-se na premissa de que a **Recuperação Vetorial (Vector RAG)** opera por similaridade semântica em um espaço denso. Embora eficaz para correspondências diretas, este modelo tende a falhar em "saltos lógicos", pois a similaridade vetorial entre a *Pergunta* e o *Documento B* (que contém a resposta final) pode ser baixa se a conexão depender de um *Documento A* intermediário.
+
+Em contraste, o **GraphRAG** modela explicitamente as dependências (A → B) como arestas. O modelo conceitual propõe que a **Estrutura de Grafo** atua como um mecanismo de "inferência guiada", permitindo que o sistema recupere contextos que são semanticamente distantes, mas topologicamente vizinhos.
+
+Espera-se que:
+1.  Nas consultas **Single-hop**, a técnica vetorial seja suficiente e mais eficiente (menor latência/custo).
+2.  Nas consultas **Multi-hop**, a técnica vetorial sofra degradação de *Recall* e *Precision*, enquanto o grafo manterá a consistência ao "caminhar" pelas relações.
+
+**7.2 Hipóteses formais (H0, H1)**
+
+Para validar o Objetivo Específico 4 (Comparação de Qualidade), formulam-se as seguintes hipóteses estatísticas:
+
+* **H1 (Context Precision em Multi-hop):**
+    * $H0_{1}$: Não há diferença significativa na precisão do contexto (*Context Precision*) entre Vector RAG e GraphRAG para consultas multi-hop ($\mu_{vector} = \mu_{graph}$).
+    * $H1_{1}$: O GraphRAG apresenta maior precisão de contexto do que o Vector RAG em consultas multi-hop ($\mu_{graph} > \mu_{vector}$).
+
+* **H2 (Fidelidade/Alucinação):**
+    * $H0_{2}$: Não há diferença significativa na métrica de fidelidade (*Faithfulness*) entre as respostas geradas pelas duas abordagens.
+    * $H1_{2}$: O GraphRAG gera respostas com maior fidelidade (menos alucinações) devido à restrição imposta pelas relações do grafo.
+
+* **H3 (Custo de Ingestão - Trade-off):**
+    * $H0_{3}$: O custo de construção dos índices é equivalente.
+    * $H1_{3}$: O custo de construção do GraphRAG é significativamente superior ao do Vector RAG (validando a premissa de *trade-off* custo/qualidade).
+
+**7.3 Nível de significância e considerações de poder**
+Será adotado um nível de significância de **$\alpha = 0,05$** (95% de confiança).
+Dado que o tamanho da amostra (*Golden Dataset*) é limitado (30 a 50 pares de perguntas), o poder estatístico (*statistical power*) pode ser reduzido para detectar efeitos pequenos. Portanto, a análise focará também no **tamanho do efeito (Effect Size)** (ex: d de Cohen) e na análise qualitativa dos casos onde houve divergência entre os modelos, caracterizando um estudo misto (quantitativo-qualitativo).
+
+---
+
+## 8. Variáveis, fatores, tratamentos e objetos de estudo
+
+**8.1 Objetos de estudo**
+Os objetos de estudo são os **fragmentos de documentação técnica** (chunks e nós de grafo) e as **consultas de teste** (queries) submetidas aos sistemas. A documentação selecionada será de um framework *Open Source* moderno (ex: FastAPI ou LangChain), garantindo complexidade real.
+
+**8.2 Sujeitos / participantes (visão geral)**
+Como este é um experimento *in silico* (automatizado), não haverá participantes humanos diretos na fase de execução.
+* **Avaliador:** O papel de "juiz" será desempenhado por uma LLM (GPT-4o) configurada via framework *Ragas* para simular a percepção humana de relevância e fidelidade.
+* **Oráculo:** O *Golden Dataset* (gabarito) será curado pelo autor do trabalho (humano) para garantir a veracidade do *Ground Truth*.
+
+**8.3 Variáveis independentes (fatores) e seus níveis**
+O experimento manipula dois fatores principais:
+1.  **Arquitetura de Recuperação:** Com dois níveis (Vector vs. Graph).
+2.  **Complexidade da Pergunta:** Com dois níveis (Single-hop vs. Multi-hop).
+
+**8.4 Tratamentos (condições experimentais)**
+O cruzamento dos fatores resulta em 4 tratamentos experimentais, conforme detalhado na Tabela 2 abaixo.
+
+**8.5 Variáveis dependentes (respostas)**
+As variáveis dependentes são as métricas de qualidade e eficiência coletadas a partir do framework *Ragas* e logs de execução (ex: *Context Precision*, *Faithfulness*, Latência, Custo).
+
+**8.6 Variáveis de controle / bloqueio**
+Para evitar viés, as seguintes variáveis serão mantidas constantes:
+* **Modelo de LLM (Gerador):** O mesmo modelo (GPT-4o-mini) será usado para gerar respostas em ambos os pipelines.
+* **Temperatura:** Fixada em 0.0 para garantir determinismo.
+* **Dataset:** Ambos os pipelines consumirão exatamente a mesma documentação fonte.
+* **Tamanho do Chunk:** O tamanho base para vetorização será padronizado (ex: 512 tokens).
+
+**8.7 Possíveis variáveis de confusão conhecidas**
+* **Qualidade do Prompt:** A forma como o prompt é construído pode favorecer um modelo. Será utilizado um prompt genérico e neutro para a etapa de resposta.
+* **Erros de Extração:** No GraphRAG, falhas da LLM em identificar entidades durante a ingestão podem ser confundidas com falha da arquitetura do grafo.
+
+### Tabelas de Definição Experimental
+
+#### Tabela 1: Variáveis do Experimento
+
+| Tipo | Variável | Descrição Operacional | Escala/Unidade |
+| :--- | :--- | :--- | :--- |
+| **Independente** | Arquitetura RAG | O método utilizado para recuperar contexto. | Nominal {Vector, Graph} |
+| **Independente** | Complexidade da Query | O nível de raciocínio necessário para responder. | Nominal {Single-hop, Multi-hop} |
+| **Dependente** | Context Precision | Medida de quão relevante é o contexto recuperado (M01). | Razão [0.0 - 1.0] |
+| **Dependente** | Faithfulness | Medida de ausência de alucinação na resposta (M02). | Razão [0.0 - 1.0] |
+| **Dependente** | Latência Total | Tempo decorrido do envio da query à resposta final (M06 + M11). | Contínua (Segundos) |
+| **Dependente** | Custo de Ingestão | Custo financeiro para processar a documentação (M08). | Contínua (USD) |
+| **Controle** | Modelo LLM | Modelo de linguagem usado para geração. | Constante (GPT-4o-mini) |
+| **Controle** | Temperatura | Parâmetro de aleatoriedade do modelo. | Constante (0.0) |
+
+#### Tabela 2: Fatores, Tratamentos e Combinações
+
+| ID Tratamento | Fator A: Arquitetura | Fator B: Complexidade | Sigla | Descrição |
+| :---: | :--- | :--- | :--- | :--- |
+| **T1** | Vector RAG (Baseline) | Single-hop (Simples) | `V-SH` | Busca vetorial para perguntas diretas. Cenário onde o vetor deve performar bem. |
+| **T2** | Vector RAG (Baseline) | Multi-hop (Complexa) | `V-MH` | Busca vetorial para perguntas conectadas. **Cenário de falha esperada.** |
+| **T3** | GraphRAG (Desafiante) | Single-hop (Simples) | `G-SH` | Busca em grafo para perguntas diretas. Verifica se há *overhead* desnecessário. |
+| **T4** | GraphRAG (Desafiante) | Multi-hop (Complexa) | `G-MH` | Busca em grafo para perguntas conectadas. **Cenário principal de validação da hipótese.** |
+
