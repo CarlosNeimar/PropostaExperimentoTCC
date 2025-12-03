@@ -250,3 +250,116 @@ Para evitar viés, as seguintes variáveis serão mantidas constantes:
 | **T3** | GraphRAG (Desafiante) | Single-hop (Simples) | `G-SH` | Busca em grafo para perguntas diretas. Verifica se há *overhead* desnecessário. |
 | **T4** | GraphRAG (Desafiante) | Multi-hop (Complexa) | `G-MH` | Busca em grafo para perguntas conectadas. **Cenário principal de validação da hipótese.** |
 
+## 9. Desenho experimental
+
+**9.1 Tipo de desenho**
+Será utilizado um **Desenho Fatorial 2x2 com Medidas Repetidas (Within-Subjects Design)**.
+* **Fatorial 2x2:** Cruzamento dos fatores *Arquitetura* (Vector vs. Graph) e *Complexidade* (Single-hop vs. Multi-hop).
+* **Medidas Repetidas:** A mesma pergunta (*sujeito*) será submetida a ambos os sistemas. Isso reduz a variância causada por diferenças inerentes entre as perguntas, permitindo comparação direta (pareada) do desempenho.
+
+**9.2 Randomização e alocação**
+Como o experimento é computacional e determinístico (Temperatura=0), a "alocação de sujeitos" se refere à ordem de execução das queries para evitar vieses de latência de API ou cache.
+* **Procedimento:** A lista de perguntas do *Golden Dataset* será embaralhada aleatoriamente via script Python (`random.shuffle`) antes da execução em cada pipeline, para garantir que falhas temporárias na API da OpenAI não afetem desproporcionalmente apenas um tipo de pergunta (ex: todas as multi-hop no final).
+
+**9.3 Balanceamento e contrabalanço**
+* **Balanceamento do Dataset:** O *Golden Dataset* será estritamente balanceado contendo 50% de perguntas Single-hop e 50% de perguntas Multi-hop.
+* **Contrabalanço:** Não se aplica no sentido humano (aprendizado), mas para evitar contaminação de contexto, o estado da memória da LLM será resetado (nova sessão) a cada pergunta.
+
+**9.4 Número de grupos e sessões**
+* **Grupos:** 1 Grupo único de perguntas (Golden Dataset) que passa por 2 Tratamentos (Pipelines).
+* **Sessões:** 1 Sessão de Execução por Pipeline.
+    * Sessão A: Execução das 30 perguntas no Vector RAG.
+    * Sessão B: Execução das 30 perguntas no GraphRAG.
+
+---
+
+## 10. População, sujeitos e amostragem
+
+*Nota: Em experimentos de Engenharia de Software baseados em automação, os "sujeitos" são os casos de teste (perguntas).*
+
+**10.1 População-alvo**
+A população-alvo compreende **perguntas técnicas factuais** que desenvolvedores de software formulam durante a leitura de documentação de bibliotecas e frameworks (ex: "Como configuro X?", "O erro Y é causado por Z?").
+
+**10.2 Critérios de inclusão de sujeitos (Perguntas)**
+* A pergunta deve ter uma resposta objetiva e verificável presente na documentação alvo.
+* A pergunta deve possuir um *Ground Truth* (gabarito) explicitamente mapeado para um trecho de texto da documentação original.
+
+**10.3 Critérios de exclusão de sujeitos**
+* Perguntas baseadas em opinião ou subjetividade (ex: "Qual a melhor prática?").
+* Perguntas cuja resposta exige conhecimento externo não presente nos arquivos ingeridos (ex: "Como isso se compara ao concorrente X?").
+
+**10.4 Tamanho da amostra planejado**
+**Total: 40 Perguntas (Casos de Teste).**
+* 20 Perguntas Single-hop (Complexidade Baixa).
+* 20 Perguntas Multi-hop (Complexidade Alta).
+* *Justificativa:* Este número fornece poder estatístico suficiente para detectar grandes efeitos (esperados entre Graph e Vector) sem inviabilizar o custo da API (estimado em ~$20 USD para avaliação).
+
+**10.5 Método de seleção / recrutamento**
+**Amostragem Intencional (Curadoria Manual Assistida por IA).**
+O autor utilizará o GPT-4o para sugerir 100 perguntas candidatas baseadas na documentação. O autor revisará manualmente e selecionará as 40 melhores que se encaixam inequivocamente nos critérios de *single-hop* e *multi-hop*.
+
+**10.6 Treinamento e preparação**
+Não há treinamento humano. A "preparação" refere-se à configuração do *System Prompt* das LLMs avaliadoras (Ragas) para garantir que elas entendam os critérios de avaliação (ex: "Você é um juiz imparcial...").
+
+---
+
+## 11. Instrumentação e protocolo operacional
+
+**11.1 Instrumentos de coleta**
+1.  **Script de Ingestão (`ingest.py`):** Código Python usando *LlamaIndex* para ler PDFs/MDs, gerar embeddings (OpenAI) e criar triplas (Neo4j).
+2.  **Script de Execução (`run_experiment.py`):** Código que itera sobre o dataset, envia perguntas aos dois sistemas e salva as respostas em JSON.
+3.  **Framework Ragas:** Biblioteca Python para cálculo automatizado das métricas (Context Precision, Faithfulness).
+4.  **Banco de Dados:** *Neo4j* (armazenamento do grafo) e *ChromaDB* (armazenamento vetorial).
+
+**11.2 Materiais de suporte**
+* **Documentação Alvo:** Arquivos PDF/Markdown limpos da biblioteca escolhida (ex: FastAPI Docs).
+* **Golden Dataset:** Arquivo JSON contendo: `{ "question": "...", "ground_truth": "...", "type": "multi-hop" }`.
+
+**11.3 Procedimento experimental (Passo a Passo)**
+
+| Passo | Atividade | Responsável | Ferramentas/Input |
+| :--- | :--- | :--- | :--- |
+| **1. Setup** | Configurar ambiente Docker (Neo4j) e variáveis de ambiente (API Keys). | Autor | Docker, `.env` |
+| **2. Seleção de Dados** | Baixar documentação oficial e limpar arquivos (remover cabeçalhos irrelevantes). | Autor | Scripts de limpeza |
+| **3. Ingestão (Vector)** | Rodar script de ingestão para criar índice no ChromaDB (Chunking: 512, Overlap: 50). | Script | LlamaIndex, ChromaDB |
+| **4. Ingestão (Graph)** | Rodar script de extração de triplas via LLM e popular o Neo4j. | Script | LlamaIndex, GPT-4o, Neo4j |
+| **5. Criação do Dataset** | Gerar perguntas candidatas, validar gabarito e classificar (Single/Multi). Salvar `golden_dataset.json`. | Autor + IA | JSON Editor |
+| **6. Execução (Baseline)** | Rodar as 40 perguntas no *Vector RAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. | Script | `logs_vector.json` |
+| **7. Execução (Challenge)** | Rodar as 40 perguntas no *GraphRAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. | Script | `logs_graph.json` |
+| **8. Avaliação** | Executar biblioteca *Ragas* comparando `logs` contra `ground_truth`. Gerar CSV final. | Script | Ragas, Pandas |
+| **9. Análise** | Processar CSV, gerar boxplots e rodar testes de hipótese. | Autor | Python (Seaborn/Scipy) |
+
+<img width="2064" height="984" alt="- visual selection" src="https://github.com/user-attachments/assets/0abab865-a34e-4de8-9a59-2df5bf1cd634" />
+
+**11.4 Plano de piloto**
+
+Um piloto será realizado com apenas **5 perguntas** (2 multi, 3 single) para validar:
+1.  Conectividade com Neo4j.
+2.  Custo médio por pergunta (para garantir que não exceda o orçamento).
+3.  Formato de saída do JSON para o Ragas.
+*Critério de Ajuste:* Se o Ragas falhar na avaliação, o *System Prompt* de avaliação será refinado.
+
+---
+
+## 12. Plano de análise de dados (pré-execução)
+
+**12.1 Estratégia geral de análise**
+A análise será quantitativa-comparativa. Os dados serão agregados por tipo de pergunta.
+* Para Q1 e Q2 (Eficácia/Qualidade): Comparação direta das médias das pontuações do Ragas.
+* Para Q3 (Eficiência): Comparação dos tempos e custos totais.
+
+**12.2 Métodos estatísticos planejados**
+Dado que as métricas de RAG (0 a 1) frequentemente não seguem distribuição normal:
+1.  **Teste de Normalidade:** Shapiro-Wilk.
+2.  **Teste de Hipótese:**
+    * Se normal: **T-test pareado (Paired t-test)**.
+    * Se não-normal (mais provável): **Teste de Postos com Sinais de Wilcoxon (Wilcoxon Signed-Rank Test)**.
+    * *Justificativa:* As amostras são pareadas (a mesma pergunta é respondida pelos dois sistemas).
+
+**12.3 Tratamento de dados faltantes e outliers**
+* **Dados Faltantes:** Se uma execução falhar (erro de API), a pergunta será removida de ambos os grupos para manter o pareamento.
+* **Outliers:** Serão identificados via método IQR (Interquartile Range). Não serão removidos, mas analisados qualitativamente para entender se representam casos de borda do grafo (ex: pergunta sobre um nó isolado).
+
+**12.4 Plano de análise para dados qualitativos**
+Será realizada uma **Análise de Erros (Error Analysis)** nos 5 casos com maior discrepância de pontuação (onde Vector ganhou muito ou Graph ganhou muito).
+* Técnica: Inspeção manual dos contextos recuperados para categorizar o erro (ex: "Falta de Aresta", "Chunk irrelevante", "Alucinação de Geração").
