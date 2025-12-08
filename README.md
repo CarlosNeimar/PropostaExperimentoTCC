@@ -451,7 +451,7 @@ Será realizada uma **Análise de Erros (Error Analysis)** nos 5 casos com maior
 | Papel | Nome | Responsabilidades | Dedicação Estimada |
 |-------|------|-------------------|-------------------|
 | **Principal Investigator (PI)** | Carlos Henrique | Desenho experimental, execução, análise, redação | 120h |
-| **Orientador** | [Nome do Orientador] | Revisão metodológica, validação de hipóteses | 10h |
+| **Orientador** | Danilo de Quadros Maia Filho | Revisão metodológica, validação de hipóteses | 10h |
 
 ### 15.2 Infraestrutura técnica necessária
 
@@ -637,6 +637,6 @@ Será realizada uma **Análise de Erros (Error Analysis)** nos 5 casos com maior
 | Aprovador | Item a Aprovar | Método de Registro |
 |-----------|----------------|-------------------|
 | **Orientador** | Plano Experimental v0.2 | E-mail com confirmação explícita |
-| **PI (Carlos)** | Checklist de Prontidão 100% completo | Issue no GitHub fechada com tag `ready-to-execute` |
+| **PI** | Checklist de Prontidão 100% completo | Issue no GitHub fechada com tag `ready-to-execute` |
 
 **Critério de Go:** Todos os itens da checklist marcados + aprovação formal do orientador registrada.
