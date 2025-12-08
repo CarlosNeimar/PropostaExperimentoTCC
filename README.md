@@ -105,7 +105,7 @@ Analisar as arquiteturas de *Vector RAG* e *GraphRAG* com o propósito de compar
 * **Incluído:**
     * Ingestão de 1 documentação técnica completa.
     * Desenvolvimento de scripts Python para os dois pipelines.
-    * Criação de 30-50 pares de Pergunta/Resposta (Golden Set).
+    * Criação de 40 pares de Pergunta/Resposta (Golden Set).
     * Avaliação automatizada "LLM-as-a-Judge".
 * **Excluído:**
     * Desenvolvimento de Interface Gráfica (Frontend).
@@ -190,7 +190,7 @@ Para validar o Objetivo Específico 4 (Comparação de Qualidade), formulam-se a
 
 **7.3 Nível de significância e considerações de poder**
 Será adotado um nível de significância de **$\alpha = 0,05$** (95% de confiança).
-Dado que o tamanho da amostra (*Golden Dataset*) é limitado (30 a 50 pares de perguntas), o poder estatístico (*statistical power*) pode ser reduzido para detectar efeitos pequenos. Portanto, a análise focará também no **tamanho do efeito (Effect Size)** (ex: d de Cohen) e na análise qualitativa dos casos onde houve divergência entre os modelos, caracterizando um estudo misto (quantitativo-qualitativo).
+Dado que o tamanho da amostra (*Golden Dataset*) é limitado (40 pares de perguntas), o poder estatístico (*statistical power*) pode ser reduzido para detectar efeitos pequenos. Portanto, a análise focará também no **tamanho do efeito (Effect Size)** (ex: d de Cohen) e na análise qualitativa dos casos onde houve divergência entre os modelos, caracterizando um estudo misto (quantitativo-qualitativo).
 
 ---
 
@@ -323,13 +323,13 @@ Não há treinamento humano. A "preparação" refere-se à configuração do *Sy
 | **2. Seleção de Dados** | Baixar documentação oficial e limpar arquivos (remover cabeçalhos irrelevantes). | Autor | Scripts de limpeza |
 | **3. Ingestão (Vector)** | Rodar script de ingestão para criar índice no ChromaDB (Chunking: 512, Overlap: 50). | Script | LlamaIndex, ChromaDB |
 | **4. Ingestão (Graph)** | Rodar script de extração de triplas via LLM e popular o Neo4j. | Script | LlamaIndex, GPT-4o, Neo4j |
-| **5. Criação do Dataset** | Gerar perguntas candidatas, validar gabarito e classificar (Single/Multi). Salvar `golden_dataset.json`. | Autor + IA | JSON Editor |
-| **6. Execução (Baseline)** | Rodar as 40 perguntas no *Vector RAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. | Script | `logs_vector.json` |
-| **7. Execução (Challenge)** | Rodar as 40 perguntas no *GraphRAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. | Script | `logs_graph.json` |
+| **5. Criação do Dataset** | Gerar perguntas candidatas, validar gabarito e classificar (Single/Multi). Salvar `golden_dataset.json`.  | Autor + IA | JSON Editor |
+| **6. Execução (Baseline)** | Rodar as 40 perguntas no *Vector RAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. Executar cada pergunta 3 vezes, resetando o contexto entre runs. Calcular mediana das métricas. | Script | `logs_vector.json` |
+| **7. Execução (Challenge)** | Rodar as 40 perguntas no *GraphRAG*. Registrar logs: Resposta, Contexto Recuperado, Tempo. Executar cada pergunta 3 vezes, resetando o contexto entre runs. Calcular mediana das métricas. | Script | `logs_graph.json` |
 | **8. Avaliação** | Executar biblioteca *Ragas* comparando `logs` contra `ground_truth`. Gerar CSV final. | Script | Ragas, Pandas |
 | **9. Análise** | Processar CSV, gerar boxplots e rodar testes de hipótese. | Autor | Python (Seaborn/Scipy) |
 
-<img width="2064" height="984" alt="- visual selection" src="Assets/FluxogramaGeral.png" />
+![Fluxograma Geral](Assets/FluxogramaGeral.png)
 
 **11.4 Plano de piloto**
 
@@ -363,3 +363,353 @@ Dado que as métricas de RAG (0 a 1) frequentemente não seguem distribuição n
 **12.4 Plano de análise para dados qualitativos**
 Será realizada uma **Análise de Erros (Error Analysis)** nos 5 casos com maior discrepância de pontuação (onde Vector ganhou muito ou Graph ganhou muito).
 * Técnica: Inspeção manual dos contextos recuperados para categorizar o erro (ex: "Falta de Aresta", "Chunk irrelevante", "Alucinação de Geração").
+
+## 13. Avaliação de validade (ameaças e mitigação)
+
+### 13.1 Validade de conclusão
+
+| Ameaça | Descrição | Estratégia de Mitigação |
+|--------|-----------|------------------------|
+| **Baixo Poder Estatístico** | Amostra de 40 perguntas pode não detectar efeitos pequenos | Foco em tamanho de efeito (Cohen's d) e análise qualitativa complementar |
+| **Violação de Normalidade** | Métricas Ragas podem não seguir distribuição normal | Uso de testes não-paramétricos (Wilcoxon) como alternativa ao t-test |
+| **Variabilidade da API** | Respostas da OpenAI podem variar mesmo com temperatura=0 | Execução de 3 runs por pergunta e uso da mediana |
+| **Erro de Medição** | Ragas pode avaliar incorretamente respostas complexas | Validação manual de 10% da amostra para verificar concordância |
+
+### 13.2 Validade interna
+
+| Ameaça | Descrição | Estratégia de Mitigação |
+|--------|-----------|------------------------|
+| **History** | Mudanças na API da OpenAI durante a execução | Execução em janela temporal curta (máximo 72h) |
+| **Maturation** | N/A (não há aprendizagem entre execuções) | — |
+| **Selection Bias** | Perguntas escolhidas podem favorecer uma abordagem | Curadoria dupla-cega: autor + revisão por colega |
+| **Instrumentação** | Diferenças nos prompts podem favorecer um sistema | Uso de prompt template idêntico para ambos os pipelines |
+| **Compensatory Rivalry** | N/A (sistemas automatizados) | — |
+
+### 13.3 Validade de constructo
+
+| Constructo | Operacionalização | Ameaça Potencial | Mitigação |
+|------------|-------------------|------------------|-----------|
+| **Qualidade da Resposta** | Métricas Ragas (Faithfulness, Relevance) | Ragas pode não capturar nuances humanas | Triangulação: Ragas + BERTScore + análise manual |
+| **Complexidade Multi-hop** | Classificação manual (Single/Multi) | Subjetividade na classificação | Critério objetivo: Multi-hop = resposta requer ≥2 documentos distintos |
+| **Eficiência** | Latência em segundos | Latência inclui variabilidade de rede | Medição apenas do tempo de processamento local (excluindo chamadas HTTP) |
+
+### 13.4 Validade externa
+
+| Limitação | Impacto na Generalização | Contextos Válidos |
+|-----------|-------------------------|-------------------|
+| **Documentação Específica** | Resultados aplicam-se apenas a docs técnicas estruturadas | Frameworks, APIs, bibliotecas com referências cruzadas |
+| **Domínio Restrito** | Não generaliza para outros tipos de RAG (ex: chat, suporte) | Documentação de software (não Q&A genérico) |
+| **Idioma** | Dataset em inglês | Frameworks internacionais (não docs localizadas) |
+| **Tamanho do Corpus** | Documentação média (~500 páginas) | Sistemas de porte similar (não aplicável a wikis corporativas massivas) |
+
+### 13.5 Resumo das principais ameaças e estratégias de mitigação
+
+**Críticas (Alta Prioridade):**
+1. **Ameaça:** Baixo poder estatístico → **Mitigação:** Análise de tamanho de efeito + Error Analysis qualitativa.
+2. **Ameaça:** Subjetividade na classificação Multi-hop → **Mitigação:** Critério objetivo (≥2 documentos) + revisão dupla.
+3. **Ameaça:** Dependência da qualidade do Ragas → **Mitigação:** Validação manual de 10% da amostra.
+
+**Moderadas:**
+4. **Ameaça:** Variabilidade da API OpenAI → **Mitigação:** 3 runs por pergunta + uso da mediana.
+5. **Ameaça:** Generalização limitada → **Mitigação:** Documentação explícita do contexto de validade.
+
+---
+
+## 14. Ética, privacidade e conformidade
+
+### 14.1 Questões éticas (uso de sujeitos, incentivos, etc.)
+
+* **Não há participantes humanos diretos** neste experimento (apenas avaliação automatizada).
+* **Uso de APIs comerciais:** Os dados de documentação serão enviados para a OpenAI API. **Risco:** Vazamento de informações se a documentação contivesse propriedade intelectual sensível.
+  * **Mitigação:** Uso exclusivo de documentação Open Source e pública (ex: FastAPI, que possui licença MIT).
+* **Incentivos:** N/A (não há recrutamento).
+
+### 14.2 Consentimento informado
+
+* **Não aplicável:** O experimento não envolve dados pessoais ou participação humana.
+* **Documentação pública:** Toda a documentação utilizada é de domínio público sob licenças permissivas (MIT, Apache 2.0).
+
+### 14.3 Privacidade e proteção de dados
+
+* **Dados coletados:** Apenas logs técnicos (perguntas sintéticas, respostas da LLM, métricas de performance).
+* **Armazenamento:** Dados salvos localmente em JSON (não serão compartilhados externamente).
+* **Retenção:** Dados mantidos por 2 anos para reprodução acadêmica, depois destruídos.
+* **LGPD/GDPR:** Não se aplica (ausência de dados pessoais).
+
+### 14.4 Aprovações necessárias (comitê de ética, jurídico, DPO, etc.)
+
+* **Comitê de Ética (CEP):** **Não necessário** (ausência de participantes humanos, conforme Resolução CNS 510/2016, Art. 1º, Parágrafo Único, Item VII).
+* **Orientador Acadêmico:** Aprovação formal necessária antes da execução (Status: **Pendente**).
+* **OpenAI Terms of Service:** Revisão para garantir conformidade com uso acadêmico de API (Status: **A verificar**).
+
+---
+
+## 15. Recursos, infraestrutura e orçamento
+
+### 15.1 Recursos humanos e papéis
+
+| Papel | Nome | Responsabilidades | Dedicação Estimada |
+|-------|------|-------------------|-------------------|
+| **Principal Investigator (PI)** | Carlos Henrique | Desenho experimental, execução, análise, redação | 120h |
+| **Orientador** | [Nome do Orientador] | Revisão metodológica, validação de hipóteses | 10h |
+
+### 15.2 Infraestrutura técnica necessária
+
+| Componente | Especificação | Justificativa |
+|------------|---------------|---------------|
+| **Ambiente de Desenvolvimento** | Python 3.11+, Conda/venv | Isolamento de dependências |
+| **Banco Vetorial** | ChromaDB 0.4.x (rodando localmente) | Armazenamento de embeddings |
+| **Banco de Grafo** | Neo4j Community Edition 5.x (Docker) | Armazenamento de triplas RDF |
+| **Framework RAG** | LlamaIndex 0.10.x | Orquestração dos pipelines |
+| **Framework Avaliação** | Ragas 0.1.x | Cálculo de métricas de qualidade |
+| **API LLM** | OpenAI API (GPT-4o-mini para geração, GPT-4o para extração) | Geração de respostas e extração de entidades |
+| **Hardware** | CPU: 8 cores, RAM: 16GB, Disco: 50GB | Processamento local e armazenamento |
+
+### 15.3 Materiais e insumos
+
+| Item | Quantidade | Uso |
+|------|-----------|-----|
+| **Documentação FastAPI** | 1 repositório (~500 páginas) | Corpus de testes |
+| **Licença OpenAI API** | Créditos suficientes para ~500k tokens | Geração e avaliação |
+| **Docker Desktop** | 1 instalação | Orquestração do Neo4j |
+| **Jupyter Notebooks** | Templates | Análise exploratória |
+
+### 15.4 Orçamento e custos estimados
+
+| Categoria | Item | Custo Unitário | Quantidade | Total |
+|-----------|------|----------------|------------|-------|
+| **API** | OpenAI Tokens (Ingestão Graph) | $0.15/1M tokens | ~2M tokens | $0.30 |
+| **API** | OpenAI Tokens (Execução 40 queries x 2 pipelines) | $0.15/1M tokens | ~0.5M tokens | $0.08 |
+| **API** | OpenAI Tokens (Avaliação Ragas) | $0.60/1M tokens (GPT-4o) | ~1M tokens | $0.60 |
+| **Infraestrutura** | Docker (Neo4j local) | Gratuito | — | $0.00 |
+| **Total Estimado** | | | | **~$1.00 USD** |
+
+---
+
+## 16. Cronograma, marcos e riscos operacionais
+
+### 16.1 Macrocronograma (até o início da execução)
+
+| Marco | Descrição | Data Prevista | Duração |
+|-------|-----------|---------------|---------|
+| **M1** | Finalização do Plano de Experimento | 10/12/2025 | — |
+| **M2** | Aprovação do Orientador | 15/12/2025 | — |
+| **M3** | Setup de Ambiente (Docker, APIs) | 20/12/2025 | 3 dias |
+| **M4** | Ingestão dos Dados (Vector + Graph) | 27/12/2025 | 5 dias |
+| **M5** | Criação do Golden Dataset (40 perguntas) | 05/01/2026 | 7 dias |
+| **M6** | Execução do Piloto (5 perguntas) | 08/01/2026 | 1 dia |
+| **M7** | Ajustes pós-piloto | 10/01/2026 | 2 dias |
+| **M8** | Execução Completa (40 perguntas x 2 pipelines) | 15/01/2026 | 3 dias |
+| **M9** | Análise Estatística e Visualizações | 22/01/2026 | 5 dias |
+| **M10** | Redação do Relatório Final | 05/02/2026 | 10 dias |
+
+### 16.2 Dependências entre atividades
+
+```
+M1 → M2 (Aprovação depende do plano completo)
+M2 → M3 (Setup só inicia após aprovação)
+M3 → M4 (Ingestão requer ambiente configurado)
+M4 → M5 (Dataset depende de documentação ingerida)
+M5 → M6 (Piloto usa perguntas do dataset)
+M6 → M7 (Ajustes baseados nos resultados do piloto)
+M7 → M8 (Execução final após validação)
+M8 → M9 (Análise depende dos dados coletados)
+M9 → M10 (Relatório sintetiza análises)
+```
+
+### 16.3 Riscos operacionais e plano de contingência
+
+| Risco | Probabilidade | Impacto | Contingência |
+|-------|---------------|---------|--------------|
+| **Custo da API excede orçamento** | Média | Alto | Reduzir dataset para 30 perguntas ou usar modelo mais barato (GPT-3.5-turbo) |
+| **Falha na extração de triplas** | Média | Alto | Trocar documentação para uma com estrutura mais explícita (ex: Django Docs) |
+| **Indisponibilidade da OpenAI API** | Baixa | Alto | Agendar execução em horário de baixa demanda (madrugada) |
+| **Neo4j não inicia no Docker** | Baixa | Médio | Usar Neo4j Aura (cloud, tier gratuito) |
+| **Atraso na aprovação do orientador** | Média | Médio | Iniciar setup de ambiente em paralelo (atividades não-bloqueantes) |
+
+---
+
+## 17. Governança do experimento
+
+### 17.1 Papéis e responsabilidades formais
+
+| Papel | Responsável | Decisões (D) / Execução (E) / Revisão (R) / Informado (I) |
+|-------|-------------|-----------------------------------------------------------|
+| **Definição do Desenho Experimental** | Carlos Henrique | D, E |
+| **Aprovação Metodológica** | Orientador | D |
+| **Execução dos Scripts** | Carlos Henrique | E |
+| **Validação do Golden Dataset** | Carlos Henrique | E |
+| **Análise Estatística** | Carlos Henrique | D, E |
+| **Aprovação Final para Publicação** | Orientador | D |
+
+### 17.2 Ritos de acompanhamento pré-execução
+
+| Rito | Frequência | Participantes | Objetivo |
+|------|-----------|---------------|----------|
+| **Reunião de Planejamento** | Única (antes de M3) | PI + Orientador | Alinhamento do plano |
+| **Checkpoint de Setup** | Única (após M3) | PI + Orientador | Validar ambiente configurado |
+| **Revisão do Golden Dataset** | Única (após M5) | PI | Garantir qualidade das perguntas |
+| **Retrospectiva do Piloto** | Única (após M6) | PI + Orientador | Decidir ajustes necessários |
+
+### 17.3 Processo de controle de mudanças no plano
+
+**Workflow de Aprovação de Mudanças:**
+
+```
+┌──────────────────┐
+│ PI identifica    │
+│ necessidade de   │
+│ mudança          │
+└────────┬─────────┘
+         │
+         ▼
+┌──────────────────┐
+│ Documenta        │
+│ Impacto:         │
+│ - Validade       │
+│ - Cronograma     │
+│ - Orçamento      │
+└────────┬─────────┘
+         │
+         ▼
+  ┌──────┴──────┐
+  │ Mudança     │
+  │ Crítica?    │
+  └──┬──────┬───┘
+     │ Não  │ Sim
+     │      │
+     │      ▼
+     │  ┌───────────────┐
+     │  │ Aprovação     │
+     │  │ Orientador    │
+     │  │ (E-mail)      │
+     │  └───────┬───────┘
+     │          │
+     └──────┬───┘
+            │
+            ▼
+    ┌───────────────┐
+    │ Atualiza      │
+    │ Plano (vX.Y+1)│
+    └───────┬───────┘
+            │
+            ▼
+    ┌───────────────┐
+    │ Comunica      │
+    │ Stakeholders  │
+    └───────────────┘
+```
+
+**Procedimento:**
+1. **Proposta de Mudança:** PI identifica necessidade de alteração (ex: redução de amostra).
+2. **Análise de Impacto:** PI documenta impacto em validade, cronograma e orçamento.
+3. **Aprovação:** Mudanças críticas (ex: troca de hipótese) requerem aprovação do orientador via e-mail.
+4. **Registro:** Mudanças documentadas em uma nova versão do plano (ex: v0.3) com changelog.
+5. **Comunicação:** Stakeholders informados via e-mail.
+
+---
+
+## 18. Plano de documentação e reprodutibilidade
+
+### 18.1 Repositórios e convenções de nomeação
+
+| Artefato | Local de Armazenamento | Convenção de Nome |
+|----------|------------------------|-------------------|
+| **Plano de Experimento** | Google Drive (privado) | `EXP-TCC-RAG-01_Plano_vX.Y.pdf` |
+| **Código-fonte** | GitHub (repositório privado) | `rag-experiment/` |
+| **Golden Dataset** | GitHub (`/data/`) | `golden_dataset_v1.json` |
+| **Logs de Execução** | GitHub (`/results/`) | `logs_vector_YYYYMMDD.json`, `logs_graph_YYYYMMDD.json` |
+| **Análises** | Jupyter Notebooks no GitHub (`/notebooks/`) | `analysis_metrics.ipynb` |
+| **Relatório Final** | Google Drive | `TCC_Carlos_Henrique_vFinal.pdf` |
+
+### 18.2 Templates e artefatos padrão
+
+| Artefato | Descrição | Localização |
+|----------|-----------|-------------|
+| **Template de Pergunta** | JSON Schema para perguntas do Golden Dataset | `/templates/question_schema.json` |
+| **Prompt de Avaliação** | System prompt usado no Ragas | `/prompts/ragas_judge.txt` |
+| **Script de Ingestão** | Python script parametrizado | `/scripts/ingest.py` |
+| **Dockerfile Neo4j** | Configuração Docker para reprodução | `/docker/docker-compose.yml` |
+
+### 18.3 Plano de empacotamento para replicação futura
+
+**Pacote de Reprodução (`reproducibility-package.zip`):**
+
+```
+├── README.md (Instruções passo a passo)
+├── requirements.txt (Dependências Python)
+├── docker-compose.yml (Ambiente Neo4j)
+├── .env.example (Template de variáveis)
+├── data/
+│   ├── documentation/ (PDFs originais)
+│   └── golden_dataset_v1.json
+├── scripts/
+│   ├── ingest_vector.py
+│   ├── ingest_graph.py
+│   ├── run_experiment.py
+│   └── analyze_results.py
+├── notebooks/
+│   └── analysis_metrics.ipynb
+└── results/ (vazio, será populado)
+```
+
+**Checklist de Reprodutibilidade:**
+- [ ] Código versionado no GitHub com tag `v1.0`
+- [ ] Documentação inline (docstrings) em todos os scripts
+- [ ] Versões exatas das bibliotecas fixadas (`pip freeze`)
+- [ ] Seeds de randomização documentadas
+- [ ] Instruções de setup testadas em máquina limpa
+
+---
+
+## 19. Plano de comunicação
+
+### 19.1 Públicos e mensagens-chave pré-execução
+
+| Público | Mensagem-Chave | Canal |
+|---------|----------------|-------|
+| **Orientador** | Plano detalhado pronto para revisão; aguardando aprovação para iniciar setup | E-mail + Reunião |
+| **Banca (futura)** | Experimento controlado com foco em validade interna; resultados esperados em fevereiro | Apresentação no TCC |
+| **Comunidade Acadêmica** | (Pós-execução) Publicação de resultados em repositório aberto | GitHub + ResearchGate |
+
+### 19.2 Canais e frequência de comunicação
+
+| Canal | Frequência | Uso |
+|-------|-----------|-----|
+| **E-mail (Orientador)** | Semanal | Status updates, dúvidas metodológicas |
+| **Reunião Presencial** | Quinzenal | Alinhamento de decisões críticas |
+| **Slack/WhatsApp** | Ad-hoc | Comunicações urgentes (bloqueios) |
+| **GitHub Issues** | Contínuo | Rastreamento de bugs e melhorias |
+
+### 19.3 Pontos de comunicação obrigatórios
+
+1. **Após M2 (Aprovação do Plano):** E-mail formal ao orientador com plano final anexado.
+2. **Antes de M4 (Início da Ingestão):** Confirmação de que o orçamento de API foi provisionado.
+3. **Após M6 (Piloto):** Relatório de 1 página com resultados do piloto e decisões de ajuste.
+4. **Antes de M8 (Execução Completa):** Go/No-Go formal do orientador.
+5. **Após M9 (Análise):** Compartilhamento de notebooks com visualizações preliminares.
+
+---
+
+## 20. Critérios de prontidão para execução (Definition of Ready)
+
+### 20.1 Checklist de prontidão (itens que devem estar completos)
+
+- [ ] **Plano aprovado pelo orientador** (M2 concluído)
+- [ ] **Ambiente Docker funcional** (Neo4j acessível via localhost:7474)
+- [ ] **API OpenAI configurada** (variável `OPENAI_API_KEY` no `.env`)
+- [ ] **Documentação baixada e limpa** (PDFs/MDs sem metadados desnecessários)
+- [ ] **Scripts de ingestão testados** (validação com 10 páginas)
+- [ ] **Golden Dataset criado** (40 perguntas com ground truth)
+- [ ] **Piloto executado e ajustes aplicados** (M7 concluído)
+- [ ] **Orçamento de API confirmado** (créditos suficientes para execução completa)
+- [ ] **Backup dos dados** (cópia de segurança em Google Drive)
+
+### 20.2 Aprovações finais para iniciar a operação
+
+| Aprovador | Item a Aprovar | Método de Registro |
+|-----------|----------------|-------------------|
+| **Orientador** | Plano Experimental v0.2 | E-mail com confirmação explícita |
+| **PI (Carlos)** | Checklist de Prontidão 100% completo | Issue no GitHub fechada com tag `ready-to-execute` |
+
+**Critério de Go:** Todos os itens da checklist marcados + aprovação formal do orientador registrada.
