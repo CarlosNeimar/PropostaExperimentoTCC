@@ -505,17 +505,7 @@ Será realizada uma **Análise de Erros (Error Analysis)** nos 5 casos com maior
 
 ### 16.2 Dependências entre atividades
 
-```
-M1 → M2 (Aprovação depende do plano completo)
-M2 → M3 (Setup só inicia após aprovação)
-M3 → M4 (Ingestão requer ambiente configurado)
-M4 → M5 (Dataset depende de documentação ingerida)
-M5 → M6 (Piloto usa perguntas do dataset)
-M6 → M7 (Ajustes baseados nos resultados do piloto)
-M7 → M8 (Execução final após validação)
-M8 → M9 (Análise depende dos dados coletados)
-M9 → M10 (Relatório sintetiza análises)
-```
+![Cronograma](Assets/Cronograma.svg)
 
 ### 16.3 Riscos operacionais e plano de contingência
 
@@ -553,53 +543,6 @@ M9 → M10 (Relatório sintetiza análises)
 
 ### 17.3 Processo de controle de mudanças no plano
 
-**Workflow de Aprovação de Mudanças:**
-
-```
-┌──────────────────┐
-│ PI identifica    │
-│ necessidade de   │
-│ mudança          │
-└────────┬─────────┘
-         │
-         ▼
-┌──────────────────┐
-│ Documenta        │
-│ Impacto:         │
-│ - Validade       │
-│ - Cronograma     │
-│ - Orçamento      │
-└────────┬─────────┘
-         │
-         ▼
-  ┌──────┴──────┐
-  │ Mudança     │
-  │ Crítica?    │
-  └──┬──────┬───┘
-     │ Não  │ Sim
-     │      │
-     │      ▼
-     │  ┌───────────────┐
-     │  │ Aprovação     │
-     │  │ Orientador    │
-     │  │ (E-mail)      │
-     │  └───────┬───────┘
-     │          │
-     └──────┬───┘
-            │
-            ▼
-    ┌───────────────┐
-    │ Atualiza      │
-    │ Plano (vX.Y+1)│
-    └───────┬───────┘
-            │
-            ▼
-    ┌───────────────┐
-    │ Comunica      │
-    │ Stakeholders  │
-    └───────────────┘
-```
-
 **Procedimento:**
 1. **Proposta de Mudança:** PI identifica necessidade de alteração (ex: redução de amostra).
 2. **Análise de Impacto:** PI documenta impacto em validade, cronograma e orçamento.
@@ -635,23 +578,7 @@ M9 → M10 (Relatório sintetiza análises)
 
 **Pacote de Reprodução (`reproducibility-package.zip`):**
 
-```
-├── README.md (Instruções passo a passo)
-├── requirements.txt (Dependências Python)
-├── docker-compose.yml (Ambiente Neo4j)
-├── .env.example (Template de variáveis)
-├── data/
-│   ├── documentation/ (PDFs originais)
-│   └── golden_dataset_v1.json
-├── scripts/
-│   ├── ingest_vector.py
-│   ├── ingest_graph.py
-│   ├── run_experiment.py
-│   └── analyze_results.py
-├── notebooks/
-│   └── analysis_metrics.ipynb
-└── results/ (vazio, será populado)
-```
+![Fluxograma Trabalho](Assets/FluxoTrabalho.svg)
 
 **Checklist de Reprodutibilidade:**
 - [ ] Código versionado no GitHub com tag `v1.0`
